@@ -1,13 +1,11 @@
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const startCallBtn = document.getElementById('startCallBtn');
-const endCallBtn = document.getElementById('endCallBtn');
+const startCallBtn = document.getElementById('startCall');
+const acceptBtn = document.getElementById('acceptCall');
 
 let localStream;
 let remoteStream;
 let peerConnection;
-
-const signalingServer = new WebSocket('ws://106.201.9.98:8080');
 
 // ICE Servers for NAT traversal
 const iceConfig = {
@@ -16,131 +14,79 @@ const iceConfig = {
     ]
 };
 
-// Event listeners for buttons
+const socket = io('http://20.244.81.24:8080');
+
 startCallBtn.addEventListener('click', startCall);
-endCallBtn.addEventListener('click', endCall);
+acceptBtn.addEventListener('click', acceptOffer);
 
-signalingServer.onmessage = async (message) => {
-    const data = JSON.parse(message.data);
+async function startCall() {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
 
+    peerConnection = createPeerConnection();
+
+    localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('message', { type: 'offer', offer });
+}
+
+async function acceptOffer() {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+
+    peerConnection = createPeerConnection();
+
+    localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
+
+    const offer = peerConnection.remoteDescription; // Ensure this is received from signaling
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit('message', { type: 'answer', answer });
+}
+
+function createPeerConnection() {
+    const pc = new RTCPeerConnection(iceConfig);
+
+    // Handle remote tracks
+    pc.ontrack = (event) => {
+        if (!remoteStream) {
+            remoteStream = new MediaStream();
+            remoteVideo.srcObject = remoteStream;
+        }
+        remoteStream.addTrack(event.track);
+    };
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('message', { type: 'candidate', candidate: event.candidate });
+        }
+    };
+
+    return pc;
+}
+
+// Handle incoming messages
+socket.on('message', async (data) => {
     switch (data.type) {
         case 'offer':
-            await handleOffer(data.offer);
+            peerConnection = createPeerConnection();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            document.getElementById('incomingCall').style.visibility = 'visible';
             break;
         case 'answer':
-            await handleAnswer(data.answer);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             break;
         case 'candidate':
-            await handleCandidate(data.candidate);
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
             break;
         default:
             console.error('Unknown message type:', data.type);
     }
-};
-
-async function startCall() {
-    // Get local media
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-
-    peerConnection = new RTCPeerConnection(iceConfig);
-
-    // Add tracks to peer connection
-    localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
-
-    // Handle incoming remote tracks
-    peerConnection.ontrack = (event) => {
-        if (!remoteStream) {
-            remoteStream = new MediaStream();
-            remoteVideo.srcObject = remoteStream;
-        }
-        remoteStream.addTrack(event.track);
-    };
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            signalingServer.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
-        }
-    };
-
-    // Create and send offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    signalingServer.send(JSON.stringify({ type: 'offer', offer }));
-
-    // Update UI
-    startCallBtn.disabled = true;
-    endCallBtn.disabled = false;
-}
-
-async function handleOffer(offer) {
-    peerConnection = new RTCPeerConnection(iceConfig);
-
-    // Handle incoming remote tracks
-    peerConnection.ontrack = (event) => {
-        if (!remoteStream) {
-            remoteStream = new MediaStream();
-            remoteVideo.srcObject = remoteStream;
-        }
-        remoteStream.addTrack(event.track);
-    };
-
-    // Add local stream tracks
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-
-    localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            signalingServer.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
-        }
-    };
-
-    // Set remote description and create answer
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    signalingServer.send(JSON.stringify({ type: 'answer', answer }));
-
-    // Update UI
-    startCallBtn.disabled = true;
-    endCallBtn.disabled = false;
-}
-
-async function handleAnswer(answer) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-}
-
-function handleCandidate(candidate) {
-    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-}
-
-function endCall() {
-    // Close peer connection and stop streams
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-
-    if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
-        localStream = null;
-        localVideo.srcObject = null;
-    }
-
-    if (remoteStream) {
-        remoteStream.getTracks().forEach((track) => track.stop());
-        remoteStream = null;
-        remoteVideo.srcObject = null;
-    }
-
-    // Notify the other peer (optional)
-    signalingServer.send(JSON.stringify({ type: 'end' }));
-
-    // Update UI
-    startCallBtn.disabled = false;
-    endCallBtn.disabled = true;
-}
+});

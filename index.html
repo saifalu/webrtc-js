@@ -5,59 +5,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Video Call</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-        }
-
-        h1 {
-            margin: 20px;
-        }
-
-        video {
-            width: 45%;
-            height: auto;
-            margin: 10px;
-            border: 2px solid #ccc;
-        }
-
-        #controls {
-            margin-top: 20px;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            background-color: #007BFF;
+          #videobox{
+            width: 1875px;
+            height: 700px;
+            border: 2px solid black;
+            display: block;
+          }
+          #incomingCall{
+            width: 500px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid black;
             color: white;
+            background-color: black;
+            visibility: hidden;
+            
+          }
+          #incomingnotification{
+            width: 500px;
+            height: 100px;
+            text-align: center;
+          }
+          #incomingbuttons{
+            width: 500px;
+            height: 100px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: row;
+            justify-content: space-between;
+          }
+          #acceptCall{
+            width: 200px;
+            height: 50px;
+            display: block;
+            color: white;
+            background-color: green
+          }
+          #rejectCall{
+            width: 200px;
+            height: 50px;
+            display: block;
+            color: white;
+            background-color: red;
+          }
+
+        #callControls{
+            margin: 50px 0px 0px 100px;
+            width: 200px;
+            height: 50px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+        #startCall{
+            width: 200px;
+            height: 50px;
+            display: block;
+            color: white;
+            background-color: green;
+        }
+        #endCall{
+            margin-top: -50px;
+            width: 200px;
+            height: 50px;
+            display: none;
+            color: white;
+            background-color: red;
         }
 
-        button:disabled {
-            background-color: #cccccc;
+        #mainbox{
+            width: 1500px;
+            height: 200px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: row;
+            justify-content: space-between;
         }
-
-        #localVideo {
-            transform: scaleX(-1); /* Mirror local video for better UX */
+        #localVideo{
+            width: 930px;
+            height: 700px;
+            border: 2px solid black;
+           
+        }
+        #remoteVideo{
+            width: 930px;
+            height: 700px;
+            border: 2px solid black;
         }
     </style>
 </head>
 <body>
-    <h1>WebRTC Video Call</h1>
-    <div>
-        <video id="localVideo" autoplay playsinline muted></video>
-        <video id="remoteVideo" autoplay playsinline></video>
+    <div id="videobox">
+        <video id="localVideo" autoplay></video>
+        <video id="remoteVideo" autoplay></video>
     </div>
-    <div id="controls">
-        <button id="startCallBtn">Start Call</button>
-        <button id="endCallBtn" disabled>End Call</button>
+
+    
+    <div id="mainbox">
+    <!-- Call Control UI -->
+    <div id="callControls">
+        <button id="startCall">Start Call</button>
+        <button id="endCall">End Call</button>
     </div>
+
+    <!-- Incoming Call UI (Hidden initially) -->
+    <div id="incomingCall" >
+        <div id="incomingnotification"><p>Incoming Call...</p></div>
+        <div id="incomingbuttons">
+        <button id="acceptCall">Accept</button>
+        <button id="rejectCall">Reject</button>
+        </div>
+    </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
     <script src="script.js"></script>
 </body>
 </html>
+
 

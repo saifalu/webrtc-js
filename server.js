@@ -1,23 +1,41 @@
-const WebSocket = require('ws');
+const { Server } = require('socket.io');
+const http = require('http');
 
-const PORT = 8080;
-const server = new WebSocket.Server({ port: PORT });
-let clients = [];
+// Create an HTTP server
+const server = http.createServer();
 
-server.on('connection', (socket) => {
-    clients.push(socket);
-
-    socket.on('message', (message) => {
-        clients.forEach((client) => {
-            if (client !== socket && client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
-    });
-
-    socket.on('close', () => {
-        clients = clients.filter((client) => client !== socket);
-    });
+const io = new Server(server, {
+    cors: {
+        origin: '*',  // Allow all origins or specify the front-end URL
+        methods: ['GET', 'POST']
+    }
 });
 
-console.log(`Signaling server is running on ws://106.201.9.98:${PORT}`);
+const PORT = 8080;
+
+
+server.listen(PORT, () => {
+    console.log(`server is running on http://localhost:${PORT}`);
+});
+
+
+io.on('connection', (socket) => {
+    console.log('A client connected:', socket.id);
+
+    
+    socket.on('message', (data) => {
+        console.log(`Message from ${socket.id}:`, data);
+
+        
+        if (data.target) {
+            io.to(data.target).emit('message', data);
+        } else {
+            socket.broadcast.emit('message', data);
+        }
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
+});
